@@ -1,0 +1,106 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: tododev 
+
+--- 
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: deploy-todo
+  namespace: tododev
+spec:
+  replicas: 3
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app: todoapp
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: todoapp
+    spec:
+      containers:
+      - name: todoapp
+        image: bhosis/todoapi:1.1
+        env:
+          - name: MYSQL_HOST
+            value: svc-db-clusterip.tododev.svc.cluster.local
+          - name: MYSQL_USER
+            value: root
+          - name: MYSQL_PASSWORD
+            value: P@ssw0rd
+          - name: MYSQL_DATABASE
+            value: tododb
+        ports:
+        - containerPort: 8081
+
+--- 
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: svc-db-clusterip
+  namespace: tododev
+spec:
+  type: ClusterIP
+  selector:
+    app: tododb
+  ports:
+  - port: 3306
+    targetPort: 3306
+
+--- 
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: deploy-todo-db
+  namespace: tododev
+spec:
+  replicas: 1
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app: tododb
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: tododb
+    spec:
+      containers:
+      - name: tododb
+        image: bhosis/todoapimysql:1.1
+        env:
+          - name: MYSQL_ROOT_PASSWORD
+            value: P@ssw0rd
+          - name: MYSQL_DATABASE
+            value: tododb
+        ports:
+        - containerPort: 3306 
+
+--- 
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: svc-app-np
+  namespace: tododev
+spec:
+  type: NodePort
+  selector:
+    app: todoapp
+  ports:
+    - port: 8081
+      targetPort: 8081
